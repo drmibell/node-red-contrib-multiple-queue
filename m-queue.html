@@ -1,0 +1,227 @@
+<!--
+  Copyright 2018-20 M. I. Bell
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+   -->
+
+<script type="text/javascript">
+    RED.nodes.registerType('m-queue',{
+        category: 'function',
+        color: '#f3b567',
+        defaults: {
+            name: {value:""},
+            queueSelect: {value:"topic"},
+            controlFlag: {value:"control"},
+            // special queues
+            defaultQueue: {value:"default"},
+            allQueues: {value:"all"},
+            // commands
+            triggerCmd: {value:"trigger"},
+            statusCmd: {value:"status"},
+            pauseCmd: {value:"pause"},
+            resumeCmd: {value:"resume"},
+            flushCmd: {value:"flush"},
+            resetCmd: {value:"reset"},
+            peekCmd: {value:"peek"},
+            dropCmd: {value:"drop"},
+            // queue properties
+            paused: {value:false},
+            keepNewestDefault: {value:false},
+            maxSizeDefault: {value:100},
+            setMaximumFlag: {value:"maximum"},
+            keepNewestFlag: {value:"newest"},
+            persist: {value:false},
+            storeName: {value:RED.settings.context.default},
+            statusOutput: {value:false},
+            outputs: {value:1}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "queue.png",
+        paletteLabel: "m–queue",
+        label: function() {
+            return this.name||"m-queue";
+        },
+        labelStyle: function() {
+            return this.name?"node_label_italic":"";
+        },
+        oneditprepare: function() {
+            var node = this
+            // configure storage options
+            RED.settings.context.stores.forEach(add)
+            function add(item){
+                $('#node-input-storeName').append(`<option value="${item}">${item}</option>`)
+            }
+            $('#node-input-storeName').val(node.storeName)
+            $("#node-input-persist").on("change", function(e) { 
+                $("#node-input-storeName").prop("disabled", !$(this).prop("checked"))
+            });
+            // configure control message property names
+            $("#node-input-queueSelect").typedInput({
+                type:"msg",
+                types:["msg"]
+            });
+            $("#node-input-controlFlag").typedInput({
+                type:"msg",
+                types:["msg"]
+            });
+            $("#node-input-keepNewestFlag").typedInput({
+                type:"msg",
+                types:["msg"]
+            });
+            $("#node-input-setMaximumFlag").typedInput({
+                type:"msg",
+                types:["msg"]
+            });
+            // configure status output
+            node.outputs = $("#node-input-statusOutput").prop('checked') ? 2 : 1;
+            $("#node-input-statusOutput").change(function() {
+                node.outputs = this.checked ? 2 : 1;
+            });
+        },
+        oneditsave: function () {
+            var node = this;
+            node.outputs = $("#node-input-statusOutput").prop('checked') ? 2 : 1;
+        }            
+    });
+</script>
+
+<script type="text/html" data-template-name="m-queue">
+<!-- queueSelect & controlFlag--> 
+    <div class="form-row">
+        <label style="width:auto" for="node-input-queueSelect"><i class="fa fa-bars"></i>
+        Queue Select</label>
+        <input type="text" id="node-input-queueSelect" placeholder="topic" style="width:20%">
+    <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-controlFlag"><i class="fa fa-cog"></i> Control Flag</label>
+        <input type="text" id="node-input-controlFlag" placeholder="control" style="width:20%">
+    </div>
+
+<!-- special queue selectors -->
+    <div><b>Special queue selectors (case insensitive):</b></div>
+    <div class="form-row">
+        <label style="width:auto" for="node-input-defaultQueue"><i class="fa fa-square-o"></i>
+        Default Queue</label>
+        <input type="text" id="node-input-defaultQueue" placeholder="default"
+            style="width:20%">
+    <span>&emsp;&emsp;&emsp;&emsp;</span>
+    <label for="node-input-allQueues"><i class="fa fa-clone"></i> 
+            All Queues</label>
+        <input type="text" id="node-input-allQueues" placeholder="all"
+            style="width:20%">
+    </div> 
+    
+<!-- commands -->
+    <div><b>Command payloads (case insensitive):</b></div>
+<!-- triggerCmd & statusCmd--> 
+    <div class="form-row">
+        <label for="node-input-triggerCmd"><i class="fa fa-step-forward"></i>
+            Trigger</label>
+        <input type="text" id="node-input-triggerCmd" placeholder="trigger" 
+            style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-statusCmd"><i class="fa fa-info"></i> 
+            Status</label>
+        <input type="text" id="node-input-statusCmd" placeholder="status"
+            style="width:20%">
+    </div>
+<!-- pauseCmd & resumeCmd --> 
+    <div class="form-row">
+        <label for="node-input-pauseCmd"><i class="fa fa-pause"></i> Pause</label>
+        <input type="text" id="node-input-pauseCmd" placeholder="pause" style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-resumeCmd"><i class="fa fa-play"></i> Resume</label>
+        <input type="text" id="node-input-resumeCmd" placeholder="resume" style="width:20%">
+    </div>
+<!-- flushCmd & resetCmd --> 
+    <div class="form-row">
+        <label for="node-input-flushCmd"><i class="fa fa-forward"></i> Flush</label>
+        <input type="text" id="node-input-flushCmd" placeholder="flush" style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-resetCmd"><i class="fa fa-eject"></i> Reset</label>
+        <input type="text" id="node-input-resetCmd" placeholder="reset" style="width:20%">
+    </div>
+<!-- peekCmd & dropCmd --> 
+    <div class="form-row">
+        <label for="node-input-peekCmd"><i class="fa fa-eye"></i> Peek</label>
+        <input type="text" id="node-input-peekCmd" placeholder="peek" style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-dropCmd"><i class="fa fa-times"></i> Drop</label>
+        <input type="text" id="node-input-dropCmd" placeholder="drop" style="width:20%">
+    </div>
+<!-- max queue length & keep newest -->
+    <!-- initial settings -->
+    <div><b>Initialize settings for all queues:</b></div>
+    <div class="form-row">
+        <label for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
+        Max queue</label>
+        <input type="number" id="node-input-maxSizeDefault" placeholder=100 style="width:10%">
+        &nbsp; (< 1, no limit)
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-keepNewestDefault" style="width:25%; display:inline">
+        <input type="checkbox" id="node-input-keepNewestDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
+        <span>Keep newest messages</span></label>
+    </div>
+    <!-- modify settings -->
+    <div><b>Modify settings for selected queue:</b></div>
+    <div class="form-row">
+        <label  style="width:auto" for="node-input-setMaximumFlag"><i class="fa fa-exclamation"></i>
+        Set-Maximum Flag</label>
+        <input type="text" id="node-input-setMaximumFlag" placeholder="maximum" style="width:20%">
+        <span>&emsp;&emsp;&emsp;</span>
+        <label  style="width:auto" for="node-input-keepNewestFlag"><i class="fa fa-clock-o"></i>
+        Keep-Newest Flag</label>
+        <input type="text" id="node-input-keepNewestFlag" placeholder="newest" style="width:20%">
+    </div>
+<!-- persistence & status output --> 
+    <div>
+        <label for="node-input-persist" style="width:25%; display:inline">
+            <input type="checkbox" id="node-input-persist" style="display:inline-block; 
+            width:15px; vertical-align:baseline;">
+        <span>Restore from state saved in</span></label>
+        <select type="text" id="node-input-storeName" style="width:20%"> </select>
+        <i class="fa fa-database"></i>
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-statusOutput" style="width:25%; display:inline">
+            <input type="checkbox" id="node-input-statusOutput" style="display:inline-block; 
+            width:15px; vertical-align:baseline;">
+        <span>Send status to second output</span></label>
+    </div>
+    <br/>
+<!-- Name -->  
+    <div class="form-row">
+        <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+</script>
+
+<!-- help text -->
+<script type="text/html" data-help-name="m-queue">
+    <p>Provides multiple, independently controlled message queues.</p>
+    <p> When a queue is full, the user has the choice of keeping either the oldest or the newest messages.</p>
+    <p>Messages with the topic <code>Control Topic</code> are control messages, which change 
+    or display the state of the gate or manage the queue. Control messages setting the state are 
+    <code>open</code>, <code>close</code>, <code>toggle</code>, <code>queue</code>, and 
+    <code>default</code>. Those managing the queue are <code>trigger</code>, 
+    <code>flush</code>, <code>peek</code>, <code>drop</code>, and <code>reset</code>. 
+    The <code>status</code> command refreshes the node status. A control message payload may
+    be a string, number, or boolean.
+    The effects of these commands and the status object displayed by the node are described on <a 
+    href="https://github.com/drmibell/node-red-contrib-queue-gate">Github</a></p>
+    <p>When first deployed or after a <code>default</code> command, the gate is in the state defined by <code>Default State</code>.<p>
+    <p>After a re-deploy or Node-RED restart, the node will enter the <code>Default State</code>,
+    unless the user has selected the <code>Restore from state saved in</code> option
+    (checkbox) in the edit dialog and has chosen a persistent form of context storage in the 
+    adjacent dropdown list. In that case, the node will enter the state it was in 
+    prior to the re-deploy or restart and will also restore the message queue.</p>
+</script>
