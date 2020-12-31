@@ -18,12 +18,14 @@ An incoming message is added to the queue identified by the `Queue Selector`. If
 Each queue responds independently to control messages addressed to it by performing the following actions:
 <p align="center"> <img  src="https://github.com/drmibell/node-red-contrib-multiple-queue/blob/main/images/definitions.png?raw=true" width="85%"></p>
 
-Further information on the `peek` and `drop` commands can be found in the documentation for the [node-red-contrib-queue-gate](https://flows.nodered.org/node/node-red-contrib-queue-gate) node. If a queue has been paused by `pause` command, it will no longer queue incoming messages or accept most commands. Only commands that do not affect the contents of a queue will be executed while it is paused. These are indicated by an asterisk in the table above.  A limited indication of node activity is provided by the status text, which displays the number of queues in operation and the total number of messages queued.
+Further information on the `peek` and `drop` commands can be found in the documentation for the [node-red-contrib-queue-gate](https://flows.nodered.org/node/node-red-contrib-queue-gate) node. If a queue has been paused by `pause` command, it will no longer queue incoming messages or accept most commands. Only commands that do not affect the contents of a queue will be executed while it is paused. These are indicated by an asterisk in the table above.  
+
+A limited indication of node activity is provided by the status text, which displays the number of queues in operation and the total number of messages queued. When a `status` command is received, the status text is refreshed so that it can be caught by a `status` node. In addition, if the `Send status to second output` checkbox is selected in the edit dialog, the node is deployed with a second output that sends a complete description of the selected queue(s) in the form of an object of the form shown:
+<p align="center"> <img  src="https://github.com/drmibell/node-red-contrib-multiple-queue/blob/main/images/status.png?raw=true" width="85%"></p>
 
 The user can limit the size of each queue to prevent memory problems. The `default` queue and all new queues will be created with the limit specified in the edit dialog. This can be changed by addressing a `maximum` command to one or all queues and providing the maximum value in the `Queue Limit` property. 
 
-By default, messages arriving when a queue is full are discarded, so that the queue contains the oldest messages. The user can, however, set the `Keep newest messages`  
-checkbox in order to have the `default` queue and all new queues created with the opposite behavior: new messages are added to the queue (at the tail), while discarding the oldest message (from the head), with the result that the queue contains the most recent messages. This behavior can be controlled on an individual queue basis by addressing a control message to that queue with the `Newest Flag` property set to `true` or `false`.
+By default, messages arriving when a queue is full are discarded, so that the queue contains the oldest messages. The user can, however, set the `Keep newest messages` checkbox in order to have the `default` queue and all new queues created with the opposite behavior: new messages are added to the queue (at the tail), while discarding the oldest message (from the head), with the result that the queue contains the most recent messages. This behavior can be controlled on an individual queue basis by addressing a control message to that queue with the `Newest Flag` property set to `true` or `false`.
 
 Changes to the maximum queue size or the `Keep newest messages` property do not affect messages already in the queue.
 
@@ -32,7 +34,14 @@ The state of the node (all queues and their contents) is maintained in the node 
 ## Examples
 ### Basic Operation
 This flow demonstrates the basic operation of the `m-queue` node and the commands that can be used to change or display its state or manage the queue.
+```
+```
+<img src="https://github.com/drmibell/node-red-contrib-queue-gate/blob/main/screenshots/m-queue-demo.png?raw=true"/>
 
-
+### Node Status
+This flow shows the default response to the `status` command and the optional use of a second output to obtain the complete status object for one or all queues.
+```
+```
+<img src="https://github.com/drmibell/node-red-contrib-queue-gate/blob/main/screenshots/m-queue-status.png?raw=true"/>
 ## Author
 [Mike Bell](https://www.linkedin.com/in/drmichaelbell/) (drmike)
