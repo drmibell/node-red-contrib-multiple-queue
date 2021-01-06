@@ -12,7 +12,7 @@
   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
   See the License for the specific language governing permissions and
   limitations under the License.
-   -->
+-->
 
 <script type="text/javascript">
     RED.nodes.registerType('m-queue',{
@@ -34,20 +34,22 @@
             resetCmd: {value:"reset"},
             peekCmd: {value:"peek"},
             dropCmd: {value:"drop"},
+            maximumCmd: {value:"maximum"},
+            newestCmd: {value:"newest"},    // ???
             // queue properties
             paused: {value:false},
             keepNewestDefault: {value:false},
             maxSizeDefault: {value:100},
-            setMaximumFlag: {value:"maximum"},
-            keepNewestFlag: {value:"newest"},
+//            keepNewestFlag: {value:"newest"},     // ???
             persist: {value:false},
+            newValue: {value:"value"},
             storeName: {value:RED.settings.context.default},
             statusOutput: {value:false},
             outputs: {value:1}
         },
         inputs:1,
         outputs:1,
-        icon: "queue.png",
+        icon: "multiple-queue.png",
         paletteLabel: "m–queue",
         label: function() {
             return this.name||"m-queue";
@@ -75,11 +77,7 @@
                 type:"msg",
                 types:["msg"]
             });
-            $("#node-input-keepNewestFlag").typedInput({
-                type:"msg",
-                types:["msg"]
-            });
-            $("#node-input-setMaximumFlag").typedInput({
+            $("#node-input-newValue").typedInput({
                 type:"msg",
                 types:["msg"]
             });
@@ -100,7 +98,7 @@
 <!-- queueSelect & controlFlag--> 
     <div class="form-row">
         <label style="width:auto" for="node-input-queueSelect"><i class="fa fa-bars"></i>
-        Queue Select</label>
+        Queue Selector</label>
         <input type="text" id="node-input-queueSelect" placeholder="topic" style="width:20%">
     <span>&emsp;&emsp;&emsp;&emsp;</span>
         <label for="node-input-controlFlag"><i class="fa fa-cog"></i> Control Flag</label>
@@ -130,7 +128,7 @@
         <input type="text" id="node-input-triggerCmd" placeholder="trigger" 
             style="width:20%">
         <span>&emsp;&emsp;&emsp;&emsp;</span>
-        <label for="node-input-statusCmd"><i class="fa fa-info"></i> 
+        <label for="node-input-statusCmd"><i class="fa fa-question"></i> 
             Status</label>
         <input type="text" id="node-input-statusCmd" placeholder="status"
             style="width:20%">
@@ -160,11 +158,19 @@
         <input type="text" id="node-input-dropCmd" placeholder="drop" style="width:20%">
     </div>
 <!-- max queue length & keep newest -->
-    <!-- initial settings -->
-    <div><b>Initialize settings for all queues:</b></div>
     <div class="form-row">
-        <label for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
-        Max queue</label>
+        <label for="node-input-maximumCmd"><i class="fa fa-exclamation"></i> Maximum</label>
+        <input type="text" id="node-input-maximumCmd" placeholder="maximum" style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-newestCmd"><i class="fa fa-clock-o"></i> Newest</label>
+        <input type="text" id="node-input-newestCmd" placeholder="newest" style="width:20%">
+    </div>
+
+<!-- initial settings -->
+    <div><b>Default settings for all queues:</b></div>
+    <div class="form-row">
+        <label style="width:auto"for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
+        Maximum Queue Size</label>
         <input type="number" id="node-input-maxSizeDefault" placeholder=100 style="width:10%">
         &nbsp; (< 1, no limit)
         <span>&emsp;&emsp;&emsp;&emsp;</span>
@@ -172,17 +178,15 @@
         <input type="checkbox" id="node-input-keepNewestDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
         <span>Keep newest messages</span></label>
     </div>
-    <!-- modify settings -->
+
+<!-- modify settings -->
     <div><b>Modify settings for selected queue:</b></div>
     <div class="form-row">
-        <label  style="width:auto" for="node-input-setMaximumFlag"><i class="fa fa-exclamation"></i>
-        Set-Maximum Flag</label>
-        <input type="text" id="node-input-setMaximumFlag" placeholder="maximum" style="width:20%">
-        <span>&emsp;&emsp;&emsp;</span>
-        <label  style="width:auto" for="node-input-keepNewestFlag"><i class="fa fa-clock-o"></i>
-        Keep-Newest Flag</label>
-        <input type="text" id="node-input-keepNewestFlag" placeholder="newest" style="width:20%">
+        <label  style="width:auto" for="node-input-newValue"><i class="fa fa-sliders"></i>
+        Value for Maximum Queue Size or Keep Newest Message</label>
+        <input type="text" id="node-input-newValue" placeholder="value" style="width:20%">
     </div>
+    
 <!-- persistence & status output --> 
     <div>
         <label for="node-input-persist" style="width:25%; display:inline">
@@ -191,7 +195,7 @@
         <span>Restore from state saved in</span></label>
         <select type="text" id="node-input-storeName" style="width:20%"> </select>
         <i class="fa fa-database"></i>
-        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <span>&emsp;&emsp;</span>
         <label for="node-input-statusOutput" style="width:25%; display:inline">
             <input type="checkbox" id="node-input-statusOutput" style="display:inline-block; 
             width:15px; vertical-align:baseline;">
@@ -208,20 +212,22 @@
 <!-- help text -->
 <script type="text/html" data-help-name="m-queue">
     <p>Provides multiple, independently controlled message queues.</p>
+    <p>Queues are created as needed and destroyed when empty, except for the <code>Default 
+    queue</code>, which is always available. Each queue is identified by a unique <code>Name</code> 
+    string that is used to steer messages to it by matching against the message 
+    <code>Queue Selector</code> property. If that property is undefined, 
+    the message is directed to the <code>Default Queue</code>. 
+    
+    <p>Messages with the property <code>Control Flag</code> set to <code>true</code> are 
+    control messages, which manage the queue. The effects of these commands and the 
+    status object reported by the node are described at 
+    <a href="https://github.com/drmibell/node-red-contrib-multiple-queue">Github</a></p>
+
     <p> When a queue is full, the user has the choice of keeping either the oldest or the newest messages.</p>
-    <p>Messages with the topic <code>Control Topic</code> are control messages, which change 
-    or display the state of the gate or manage the queue. Control messages setting the state are 
-    <code>open</code>, <code>close</code>, <code>toggle</code>, <code>queue</code>, and 
-    <code>default</code>. Those managing the queue are <code>trigger</code>, 
-    <code>flush</code>, <code>peek</code>, <code>drop</code>, and <code>reset</code>. 
-    The <code>status</code> command refreshes the node status. A control message payload may
-    be a string, number, or boolean.
-    The effects of these commands and the status object displayed by the node are described on <a 
-    href="https://github.com/drmibell/node-red-contrib-queue-gate">Github</a></p>
-    <p>When first deployed or after a <code>default</code> command, the gate is in the state defined by <code>Default State</code>.<p>
-    <p>After a re-deploy or Node-RED restart, the node will enter the <code>Default State</code>,
-    unless the user has selected the <code>Restore from state saved in</code> option
+   
+     <p>After a re-deploy or Node-RED restart, all queues except the <code>Default Queue</code>
+    will be deleted unless the user has selected the <code>Restore from state saved in</code> option
     (checkbox) in the edit dialog and has chosen a persistent form of context storage in the 
-    adjacent dropdown list. In that case, the node will enter the state it was in 
-    prior to the re-deploy or restart and will also restore the message queue.</p>
+    adjacent dropdown list. In that case, the node will restore the queues and node settings to their
+    state prior to the re-deploy or restart. </p>
 </script>

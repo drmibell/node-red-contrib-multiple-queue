@@ -31,16 +31,16 @@ module.exports = function(RED) {
         this.resetCmd = config.resetCmd.toLowerCase();
         this.peekCmd = config.peekCmd.toLowerCase();
         this.dropCmd = config.dropCmd.toLowerCase();
+        this.maximumCmd = config.maximumCmd.toLowerCase();
+        this.newestCmd = config.newestCmd.toLowerCase();
         // queue properties
         this.keepNewestDefault = config.keepNewestDefault;
-        this.maxSizeDefault = parseInt(config.maxSizeDefault);        
-        this.setMaximumFlag = config.setMaximumFlag.toLowerCase();
-        this.keepNewestFlag = config.keepNewestFlag.toLowerCase();
+        this.maxSizeDefault = parseInt(config.maxSizeDefault);    
         this.persist = config.persist;
         this.storeName = config.storeName;
-        this.outputs = config.outputs // debug
-        this.statusOutput = config.statusOutput // debug
-
+        this.newValue = config.newValue
+        this.outputs = config.outputs
+        this.statusOutput = config.statusOutput
         // Save "this" object
         var node = this;
         var context = node.context();
@@ -50,15 +50,11 @@ module.exports = function(RED) {
         var allQueues = node.allQueues;
         var persist = node.persist;
         var storeName = node.storeName
+        var newValue = node.newValue
         var keepNewestDefault = node.keepNewestDefault
         var maxSizeDefault = node.maxSizeDefault
 
-// Handle persistence
-        // Gate status & max queue size
-        if (maxSizeDefault <= 0) {
-            maxSizeDefault = Infinity;
-        }
-        let qArray = [
+        let qArrayInit = [
             {
                 qName: defaultQueue,
                 msgQ: [],
@@ -66,9 +62,14 @@ module.exports = function(RED) {
                 keepNewest: keepNewestDefault,
                 maxSize: maxSizeDefault
             }]
+        let qArray = persist ? context.get('qArray',storeName) : qArrayInit
+        qArray = qArray || qArrayInit
+        let n = 0   // show status
+        for (i = 0; i < qArray.length; i++) {
+            n = n + qArray[i].msgQ.length
+            }
+        node.status({text:n + ' messages, ' + qArray.length + ' queues'})
         context.set('qArray', qArray,storeName)
-        // Initialize status display
-        node.status({text:0 + ' messages, ' + 1 + ' queues'})
         // Process inputs
         node.on('input', function(msg) {
             let qArray = context.get('qArray',storeName)
@@ -119,6 +120,9 @@ module.exports = function(RED) {
                         case node.dropCmd:
                             if (Q.paused) {break}
                             Q.msgQ.shift()
+                             if (qIndex != 0 && Q.msgQ.length === 0) {  // delete empty queue
+                                qArray.splice(qIndex,1)
+                            }
                             break
                         case node.flushCmd:
                             if (Q.paused) {break}
@@ -137,20 +141,33 @@ module.exports = function(RED) {
                         case node.pauseCmd:
                             Q.paused = true
                             break
-                        case 'maximum':
-                            Q.maxSize = msg.maximum // ??? msg[maximum]
+                        case node.maximumCmd:
+                            let newMax = msg[newValue]
+                            if (newMax == undefined) {
+                                Q.maxSize = maxSizeDefault
+                            } else if (newMax <= 0) {
+                                Q.maxSize = Infinity
+                            } else {
+                                Q.maxSize = newMax 
+                            }
+                            context.set('qArray',qArray,storeName)
                             break
+                        case node.newestCmd:
+                            let newKeep = msg[newValue]
+                            if (newKeep == undefined) {
+                                newKeep = keepNewestDefault
+                            }
+                            Q.keepNewest = newKeep
+                            context.set('qArray',qArray,storeName)
+                        break
                         case node.statusCmd:
-//                            node.send([null,qArray])   // ???
-//                            node.send([qArray])   // ???
- //                           node.send({payload: qArray})   // ???
-                            node.send([null,{payload: Q}])   // ???
+                            node.send([null,{payload: Q}])
                         break
                         default:
                             node.warn('Invalid command ignored');
                         }
                     } else {    // queue message
-                        if (!qExists) {  // if queue does not exist, create new queue
+                        if (!qExists) {  // if queue does not exist, create new one
                             qArray.push({
                                 qName: qSelect,
                                 msgQ: [msg],
