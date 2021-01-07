@@ -33,9 +33,12 @@ module.exports = function(RED) {
         this.dropCmd = config.dropCmd.toLowerCase();
         this.maximumCmd = config.maximumCmd.toLowerCase();
         this.newestCmd = config.newestCmd.toLowerCase();
+        this.protectCmd = config.protectCmd.toLowerCase()
+        this.deleteCmd = config.deleteCmd.toLowerCase()
         // queue properties
+        this.maxSizeDefault = parseInt(config.maxSizeDefault);
         this.keepNewestDefault = config.keepNewestDefault;
-        this.maxSizeDefault = parseInt(config.maxSizeDefault);    
+        this.protectDefault = config.protectDefault
         this.persist = config.persist;
         this.storeName = config.storeName;
         this.newValue = config.newValue
@@ -53,14 +56,16 @@ module.exports = function(RED) {
         var newValue = node.newValue
         var keepNewestDefault = node.keepNewestDefault
         var maxSizeDefault = node.maxSizeDefault
+        var protectDefault = node.protectDefault
 
         let qArrayInit = [
             {
                 qName: defaultQueue,
                 msgQ: [],
+                maxSize: maxSizeDefault,
                 paused: false,
                 keepNewest: keepNewestDefault,
-                maxSize: maxSizeDefault
+                protect: true   // cannot change
             }]
         let qArray = persist ? context.get('qArray',storeName) : qArrayInit
         qArray = qArray || qArrayInit
@@ -110,8 +115,9 @@ module.exports = function(RED) {
                         case node.triggerCmd:
                             if (Q.paused) {break}
                             node.send (Q.msgQ.shift())
-                            if (qIndex != 0 && Q.msgQ.length === 0) {  // delete empty queue
-                                qArray.splice(qIndex,1)
+//                            if (qIndex != 0 && !Q.protect && Q.msgQ.length === 0) {
+                            if (Q.msgQ.length === 0 && !Q.protect) {
+                                qArray.splice(qIndex,1)  // delete empty queue
                             }
                             break
                         case node.peekCmd:    // works when queue is paused
@@ -120,8 +126,8 @@ module.exports = function(RED) {
                         case node.dropCmd:
                             if (Q.paused) {break}
                             Q.msgQ.shift()
-                             if (qIndex != 0 && Q.msgQ.length === 0) {  // delete empty queue
-                                qArray.splice(qIndex,1)
+                            if (Q.msgQ.length === 0 && !Q.protect) {
+                                qArray.splice(qIndex,1)  // delete empty queue
                             }
                             break
                         case node.flushCmd:
@@ -129,9 +135,9 @@ module.exports = function(RED) {
                             node.send([Q.msgQ])
                         case node.resetCmd:
                             if (Q.paused) {break}
-                            if (qIndex != 0) {  // delete queue
+                            if (!Q.protect) {  // delete queue
                                 qArray.splice(qIndex,1)
-                            } else {
+                            } else {    // clear message queue
                                 Q.msgQ = []
                             }
                             break
@@ -163,6 +169,21 @@ module.exports = function(RED) {
                         case node.statusCmd:
                             node.send([null,{payload: Q}])
                         break
+                        case node.protectCmd:
+                            if (qIndex === 0) {break}
+                            let newProtect = msg[newValue]
+                            if (newProtect == undefined) {
+                                newProtect = protectDefault
+                            }
+                            Q.protect = newProtect
+                            context.set('qArray',qArray,storeName)
+                        break
+                        case node.deleteCmd:
+                            if (Q.paused) {break}
+                            if (qIndex != 0) {  // delete queue
+                                qArray.splice(qIndex,1)
+                            }
+                        break
                         default:
                             node.warn('Invalid command ignored');
                         }
@@ -171,9 +192,10 @@ module.exports = function(RED) {
                             qArray.push({
                                 qName: qSelect,
                                 msgQ: [msg],
+                                maxSize: maxSizeDefault,
                                 paused: false,
                                 keepNewest: keepNewestDefault,
-                                maxSize: maxSizeDefault
+                                protect: protectDefault
                             })
                         } else {  // use existing queue
                             Q = qArray[qIndex]

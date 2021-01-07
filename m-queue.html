@@ -22,7 +22,7 @@
             name: {value:""},
             queueSelect: {value:"topic"},
             controlFlag: {value:"control"},
-            // special queues
+            // special queue selectors
             defaultQueue: {value:"default"},
             allQueues: {value:"all"},
             // commands
@@ -35,12 +35,16 @@
             peekCmd: {value:"peek"},
             dropCmd: {value:"drop"},
             maximumCmd: {value:"maximum"},
-            newestCmd: {value:"newest"},    // ???
+            newestCmd: {value:"newest"}, 
+            protectCmd: {value:"protect"},
+            deleteCmd: {value:"delete"},
             // queue properties
             paused: {value:false},
+            protect: {value:false},
             keepNewestDefault: {value:false},
             maxSizeDefault: {value:100},
-//            keepNewestFlag: {value:"newest"},     // ???
+            protectDefault:{value:false},
+            // general defaults    
             persist: {value:false},
             newValue: {value:"value"},
             storeName: {value:RED.settings.context.default},
@@ -157,13 +161,21 @@
         <label for="node-input-dropCmd"><i class="fa fa-times"></i> Drop</label>
         <input type="text" id="node-input-dropCmd" placeholder="drop" style="width:20%">
     </div>
-<!-- max queue length & keep newest -->
+<!-- max queue size & keep newest -->
     <div class="form-row">
         <label for="node-input-maximumCmd"><i class="fa fa-exclamation"></i> Maximum</label>
         <input type="text" id="node-input-maximumCmd" placeholder="maximum" style="width:20%">
         <span>&emsp;&emsp;&emsp;&emsp;</span>
         <label for="node-input-newestCmd"><i class="fa fa-clock-o"></i> Newest</label>
         <input type="text" id="node-input-newestCmd" placeholder="newest" style="width:20%">
+    </div>
+<!-- protect & delete -->
+    <div class="form-row">
+        <label for="node-input-protectCmd"><i class="fa fa-shield"></i> Protect</label>
+        <input type="text" id="node-input-protectCmd" placeholder="protect" style="width:20%">
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-deleteCmd"><i class="fa fa-trash"></i> Delete</label>
+        <input type="text" id="node-input-deleteCmd" placeholder="delete" style="width:20%">
     </div>
 
 <!-- initial settings -->
@@ -173,17 +185,22 @@
         Maximum Queue Size</label>
         <input type="number" id="node-input-maxSizeDefault" placeholder=100 style="width:10%">
         &nbsp; (< 1, no limit)
-        <span>&emsp;&emsp;&emsp;&emsp;</span>
+    </div>
+    <div class="form-row">
         <label for="node-input-keepNewestDefault" style="width:25%; display:inline">
         <input type="checkbox" id="node-input-keepNewestDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
         <span>Keep newest messages</span></label>
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-protectDefault" style="width:25%; display:inline">
+        <input type="checkbox" id="node-input-protectDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
+        <span>Protect empty queues</span></label>
     </div>
 
 <!-- modify settings -->
     <div><b>Modify settings for selected queue:</b></div>
     <div class="form-row">
         <label  style="width:auto" for="node-input-newValue"><i class="fa fa-sliders"></i>
-        Value for Maximum Queue Size or Keep Newest Message</label>
+        Value for Max Queue Size, Keep Newest Message, or Protect Queue</label>
         <input type="text" id="node-input-newValue" placeholder="value" style="width:20%">
     </div>
     
