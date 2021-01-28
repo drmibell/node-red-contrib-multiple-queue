@@ -90,6 +90,9 @@
             $("#node-input-statusOutput").change(function() {
                 node.outputs = this.checked ? 2 : 1;
             });
+            // configure version number
+            const version = RED.nodes.registry.getModule("node-red-contrib-multiple-queue").version
+            $('#node-version').append(` ${version}`)
         },
         oneditsave: function () {
             var node = this;
@@ -108,11 +111,10 @@
         <label for="node-input-controlFlag"><i class="fa fa-cog"></i> Control Flag</label>
         <input type="text" id="node-input-controlFlag" placeholder="control" style="width:20%">
     </div>
-
 <!-- special queue selectors -->
     <div><b>Special queue selectors (case insensitive):</b></div>
     <div class="form-row">
-        <label style="width:auto" for="node-input-defaultQueue"><i class="fa fa-square-o"></i>
+        <label style="width:auto" for="node-input-defaultQueue"><i class="fa fa-check-square-o"></i>
         Default Queue</label>
         <input type="text" id="node-input-defaultQueue" placeholder="default"
             style="width:20%">
@@ -122,7 +124,6 @@
         <input type="text" id="node-input-allQueues" placeholder="all"
             style="width:20%">
     </div> 
-    
 <!-- commands -->
     <div><b>Command payloads (case insensitive):</b></div>
 <!-- triggerCmd & statusCmd--> 
@@ -177,11 +178,10 @@
         <label for="node-input-deleteCmd"><i class="fa fa-trash"></i> Delete</label>
         <input type="text" id="node-input-deleteCmd" placeholder="delete" style="width:20%">
     </div>
-
 <!-- initial settings -->
     <div><b>Default settings for all queues:</b></div>
     <div class="form-row">
-        <label style="width:auto"for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
+        <label style="width:auto" for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
         Maximum Queue Size</label>
         <input type="number" id="node-input-maxSizeDefault" placeholder=100 style="width:10%">
         &nbsp; (< 1, no limit)
@@ -195,7 +195,6 @@
         <input type="checkbox" id="node-input-protectDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
         <span>Protect empty queues</span></label>
     </div>
-
 <!-- modify settings -->
     <div><b>Modify settings for selected queue:</b></div>
     <div class="form-row">
@@ -203,7 +202,6 @@
         Value for Max Queue Size, Keep Newest Message, or Protect Queue</label>
         <input type="text" id="node-input-newValue" placeholder="value" style="width:20%">
     </div>
-    
 <!-- persistence & status output --> 
     <div>
         <label for="node-input-persist" style="width:25%; display:inline">
@@ -222,11 +220,14 @@
 <!-- Name -->  
     <div class="form-row">
         <label for="node-input-name"><i class="fa fa-tag"></i> Name</label>
-        <input type="text" id="node-input-name" placeholder="Name">
+        <input type="text" id="node-input-name" placeholder="Name" style="width:50%">
+
+        <span>&emsp;&emsp;</span>
+        <label id="node-version" style="width:auto" >Version</label>
+
     </div>
 </script>
 
-<!-- help text -->
 <script type="text/html" data-help-name="m-queue">
     <p>Provides multiple, independently controlled message queues.</p>
     <p>Queues are created as needed and destroyed when empty, except for the <code>Default 
@@ -234,14 +235,11 @@
     string that is used to steer messages to it by matching against the message 
     <code>Queue Selector</code> property. If that property is undefined, 
     the message is directed to the <code>Default Queue</code>. 
-    
     <p>Messages with the property <code>Control Flag</code> set to <code>true</code> are 
     control messages, which manage the queue. The effects of these commands and the 
     status object reported by the node are described at 
     <a href="https://github.com/drmibell/node-red-contrib-multiple-queue">Github</a></p>
-
     <p> When a queue is full, the user has the choice of keeping either the oldest or the newest messages.</p>
-   
      <p>After a re-deploy or Node-RED restart, all queues except the <code>Default Queue</code>
     will be deleted unless the user has selected the <code>Restore from state saved in</code> option
     (checkbox) in the edit dialog and has chosen a persistent form of context storage in the 
