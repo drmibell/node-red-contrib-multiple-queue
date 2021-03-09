@@ -14,9 +14,10 @@
  * limitations under the License.
  **/
 module.exports = function(RED) {
+    "use strict"
     function MultipleQueueNode(config) {
         RED.nodes.createNode(this,config);
-        // Copy configuration items
+        // control properties
         this.queueSelect = config.queueSelect.toLowerCase();
         this.controlFlag = config.controlFlag.toLowerCase();
         // special queues
@@ -69,15 +70,15 @@ module.exports = function(RED) {
             }]
         function showStatus(qArray) {
             let n = 0
-            for (i = 0; i < qArray.length; i++) {
+            for (let i = 0; i < qArray.length; i++) {
                 n = n + qArray[i].msgQ.length
             }
             node.status({text:n + ' messages, ' + qArray.length + ' queues'})
             return
         }
         function findQueue(qSelect,qArray){
-            for (i = 0; i < qArray.length; i++) {
-                if (qArray[i].qName == qSelect) {
+            for (let i = 0; i < qArray.length; i++) {
+                if (qArray[i].qName === qSelect) {
                     return i
                 }
             }
@@ -119,7 +120,7 @@ module.exports = function(RED) {
                     node.warn('Invalid command ignored: queue does not exist.')
                     return
                 }
-                for (i = first; i < last; i++) {
+                for (let i = first; i < last; i++) {
                     Q = qArray[i]
                     switch (msg.payload.toString().toLowerCase()) {
                         case node.triggerCmd:
@@ -187,7 +188,7 @@ module.exports = function(RED) {
                     }
                 }
                 let qArrayTemp = []    // delete empty queues
-                for (i = 0; i < qArray.length; i++){
+                for (let i = 0; i < qArray.length; i++){
                     if (qArray[i].protect || qArray[i].msgQ.length > 0) {
                         qArrayTemp.push(qArray[i])
                     }
@@ -195,11 +196,12 @@ module.exports = function(RED) {
                 qArray = qArrayTemp
             } else {    // queue message
                 if (qSelect === allQueues) {
-                    for (i = 0; i < qArray.length; i++) {
+                    for (let i = 0; i < qArray.length; i++) {
                         enqueue(msg,qArray[i])
                     }
                 } else {
                     qIndex = findQueue(qSelect,qArray)
+                    }        
                     if (qIndex < 0) {   // create new queue
                         qArray.push({
                             qName: qSelect,
