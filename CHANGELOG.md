@@ -1,0 +1,4 @@
+- 0.2.1 (2021-01-28) Refactor JS code and add version number to edit dialog
+- 0.2.0 (2021-01-07) Add `protect` and `delete` commands
+- 0.1.1 (2021-01-06) Add `All Queues` selector and `node-red` keyword
+- 0.1.0 (2020-12-30) Initial commit.
