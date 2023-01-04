@@ -26,6 +26,7 @@
             defaultQueue: {value:"default"},
             allQueues: {value:"all"},
             // commands
+            bypassCmd: {value:"bypass"},
             triggerCmd: {value:"trigger"},
             statusCmd: {value:"status"},
             pauseCmd: {value:"pause"},
@@ -35,7 +36,7 @@
             peekCmd: {value:"peek"},
             dropCmd: {value:"drop"},
             maximumCmd: {value:"maximum"},
-            newestCmd: {value:"newest"}, 
+            newestCmd: {value:"newest"},
             protectCmd: {value:"protect"},
             deleteCmd: {value:"delete"},
             // queue properties
@@ -44,7 +45,8 @@
             keepNewestDefault: {value:false},
             maxSizeDefault: {value:100},
             protectDefault:{value:false},
-            // general defaults    
+            bypassDefault:{value:false},
+            // general defaults
             persist: {value:false},
             newValue: {value:"value"},
             storeName: {value:RED.settings.context.default},
@@ -69,7 +71,7 @@
                 $('#node-input-storeName').append(`<option value="${item}">${item}</option>`)
             }
             $('#node-input-storeName').val(node.storeName)
-            $("#node-input-persist").on("change", function(e) { 
+            $("#node-input-persist").on("change", function(e) {
                 $("#node-input-storeName").prop("disabled", !$(this).prop("checked"))
             });
             // configure control message property names
@@ -97,7 +99,7 @@
         oneditsave: function () {
             var node = this;
             node.outputs = $("#node-input-statusOutput").prop('checked') ? 2 : 1;
-        }            
+        }
     });
 </script>
 
@@ -178,13 +180,18 @@
         <label for="node-input-deleteCmd"><i class="fa fa-trash"></i> Delete</label>
         <input type="text" id="node-input-deleteCmd" placeholder="delete" style="width:20%">
     </div>
+<!-- bypass -->
+    <div class="form-row">
+        <label for="node-input-bypassCmd"><i class="fa fa-fast-forward"></i> Bypass</label>
+        <input type="text" id="node-input-bypassCmd" placeholder="bypass" style="width:20%">
+    </div>
 <!-- initial settings -->
     <div><b>Default settings for all queues:</b></div>
     <div class="form-row">
         <label style="width:auto" for="node-input-maxSizeDefault"><i class="fa fa-exclamation-triangle"></i> 
         Maximum Queue Size</label>
         <input type="number" id="node-input-maxSizeDefault" placeholder=100 style="width:10%">
-        &nbsp; (< 1, no limit)
+        &nbsp; (< 0, no limit)
     </div>
     <div class="form-row">
         <label for="node-input-keepNewestDefault" style="width:25%; display:inline">
@@ -194,12 +201,16 @@
         <label for="node-input-protectDefault" style="width:25%; display:inline">
         <input type="checkbox" id="node-input-protectDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
         <span>Protect empty queues</span></label>
+        <span>&emsp;&emsp;&emsp;&emsp;</span>
+        <label for="node-input-bypassDefault" style="width:25%; display:inline">
+        <input type="checkbox" id="node-input-bypassDefault" style="display:inline-block; width:15px; vertical-align:baseline;">
+        <span>bypass queues</span></label>
     </div>
 <!-- modify settings -->
     <div><b>Modify settings for selected queue:</b></div>
     <div class="form-row">
         <label  style="width:auto" for="node-input-newValue"><i class="fa fa-sliders"></i>
-        Value for Max Queue Size, Keep Newest Message, or Protect Queue</label>
+        Value for Max Queue Size, Keep Newest Message, Protect Queue, or Bypass Queue</label>
         <input type="text" id="node-input-newValue" placeholder="value" style="width:20%">
     </div>
 <!-- persistence & status output --> 
