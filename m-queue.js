@@ -34,15 +34,14 @@ module.exports = function(RED) {
         this.dropCmd = config.dropCmd.toLowerCase();
         this.maximumCmd = config.maximumCmd.toLowerCase();
         this.newestCmd = config.newestCmd.toLowerCase();
-        this.protectCmd = config.protectCmd.toLowerCase()
         this.bypassCmd = config.bypassCmd.toLowerCase();
+        this.emptyTtlCmd = config.emptyTtlCmd.toLowerCase();
         this.deleteCmd = config.deleteCmd.toLowerCase()
         // queue properties
         this.maxSizeDefault = parseInt(config.maxSizeDefault);
         this.keepNewestDefault = config.keepNewestDefault;
-        this.protectDefault = config.protectDefault
         this.bypassDefault = config.bypassDefault
-        this.bypassDefault = config.bypassDefault
+        this.emptyTtlDefault = config.emptyTtlDefault
         this.persist = config.persist;
         this.storeName = config.storeName;
         this.newValue = config.newValue
@@ -59,9 +58,9 @@ module.exports = function(RED) {
         var storeName = node.storeName
         var newValue = node.newValue
         var keepNewestDefault = node.keepNewestDefault
-        var maxSizeDefault = node.maxSizeDefault < 0 ? Infinity : node.maxSizeDefault
-        var protectDefault = node.protectDefault
+        var maxSizeDefault = node.maxSizeDefault < 0 ? Number.MAX_SAFE_INTEGER : node.maxSizeDefault
         var bypassDefault = node.bypassDefault
+        var emptyTtlDefault = node.emptyTtlDefault < 0 ? Number.MAX_SAFE_INTEGER : node.emptyTtlDefault
         // Definitions
         let qArrayInit = [
             {
@@ -70,7 +69,8 @@ module.exports = function(RED) {
                 maxSize: maxSizeDefault,
                 paused: false,
                 keepNewest: keepNewestDefault,
-                protect: true,   // cannot change
+                emptyTtl: Number.MAX_SAFE_INTEGER, // cannot change
+                emptyQueueSince: 0,
                 bypass: false    // cannot change
             }]
         function showStatus(qArray) {
@@ -96,7 +96,8 @@ module.exports = function(RED) {
                 maxSize: maxSizeDefault,
                 paused: false,
                 keepNewest: keepNewestDefault,
-                protect: protectDefault,
+                emptyTtl: emptyTtlDefault,
+                emptyQueueSince: 0,
                 bypass: bypassDefault
             })
             return qArray.length - 1
@@ -127,7 +128,7 @@ module.exports = function(RED) {
             let first, last = 0
             if (typeof qSelect === 'undefined' || qSelect === '') { // qSelect undefined?
                 qSelect =  defaultQueue
-            }            
+            }
             if (msg[controlFlag]) {  // execute command
                 if (qSelect === allQueues){
                     first = 0
@@ -140,6 +141,7 @@ module.exports = function(RED) {
                     }
                     last = first + 1
                 }
+                let now = Date.now()
                 for (let i = first; i < last; i++) {
                     Q = qArray[i]
                     switch (msg.payload.toString().toLowerCase()) {
@@ -175,7 +177,7 @@ module.exports = function(RED) {
                             if (typeof newMax === 'undefined') {
                                 Q.maxSize = maxSizeDefault
                             } else if (newMax < 0) {
-                                Q.maxSize = Infinity
+                                Q.maxSize = Number.MAX_SAFE_INTEGER
                             } else {
                                 Q.maxSize = newMax
                             }
@@ -186,14 +188,6 @@ module.exports = function(RED) {
                                 newKeep = keepNewestDefault
                             }
                             Q.keepNewest = newKeep
-                            break
-                        case node.protectCmd:
-                            if (Q.qName === defaultQueue) {break}
-                            let newProtect = msg[newValue]
-                            if (typeof newProtect === 'undefined') {
-                                newProtect = protectDefault
-                            }
-                            Q.protect = newProtect
                             break
                         case node.bypassCmd:
                             if (Q.qName === defaultQueue) {break}
@@ -207,10 +201,21 @@ module.exports = function(RED) {
                                 Q.msgQ = []
                             }
                             break
+                        case node.emptyTtlCmd:
+                            if (Q.qName === defaultQueue) {break}
+                            let newTtl = msg[newValue]
+                            if (typeof newTtl === 'undefined') {
+                                Q.emptyTtl = maxSizeDefault
+                            } else if (newTtl < 0) {
+                                Q.emptyTtl = Number.MAX_SAFE_INTEGER
+                            } else {
+                                Q.emptyTtl = newTtl
+                            }
+                            break
                         case node.deleteCmd:
                             if (Q.paused) {break}
                             if (Q.qName != defaultQueue)
-                                Q.protect = false
+                                Q.emptyTtl = 0
                                 Q.msgQ = []
                             break
                         case node.statusCmd:
@@ -222,7 +227,10 @@ module.exports = function(RED) {
                 }
                 let qArrayTemp = []    // delete empty queues
                 for (let i = 0; i < qArray.length; i++){
-                    if (qArray[i].protect || qArray[i].bypass || qArray[i].msgQ.length > 0) {
+                    if (qArray[i].emptyQueueSince === 0 && qArray[i].msgQ.length === 0) {
+                        qArray[i].emptyQueueSince = now
+                    }
+                    if (qArray[i].msgQ.length > 0 || (now - qArray[i].emptyQueueSince) < qArray[i].emptyTtl) {
                         qArrayTemp.push(qArray[i])
                     }
                 }
