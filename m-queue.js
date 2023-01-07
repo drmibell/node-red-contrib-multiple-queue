@@ -34,12 +34,14 @@ module.exports = function(RED) {
         this.dropCmd = config.dropCmd.toLowerCase();
         this.maximumCmd = config.maximumCmd.toLowerCase();
         this.newestCmd = config.newestCmd.toLowerCase();
-        this.protectCmd = config.protectCmd.toLowerCase()
+        this.bypassCmd = config.bypassCmd.toLowerCase();
+        this.emptyTtlCmd = config.emptyTtlCmd.toLowerCase();
         this.deleteCmd = config.deleteCmd.toLowerCase()
         // queue properties
         this.maxSizeDefault = parseInt(config.maxSizeDefault);
         this.keepNewestDefault = config.keepNewestDefault;
-        this.protectDefault = config.protectDefault
+        this.bypassDefault = config.bypassDefault
+        this.emptyTtlDefault = config.emptyTtlDefault
         this.persist = config.persist;
         this.storeName = config.storeName;
         this.newValue = config.newValue
@@ -56,8 +58,9 @@ module.exports = function(RED) {
         var storeName = node.storeName
         var newValue = node.newValue
         var keepNewestDefault = node.keepNewestDefault
-        var maxSizeDefault = node.maxSizeDefault
-        var protectDefault = node.protectDefault
+        var maxSizeDefault = node.maxSizeDefault < 0 ? Number.MAX_SAFE_INTEGER : node.maxSizeDefault
+        var bypassDefault = node.bypassDefault
+        var emptyTtlDefault = node.emptyTtlDefault < 0 ? Number.MAX_SAFE_INTEGER : node.emptyTtlDefault
         // Definitions
         let qArrayInit = [
             {
@@ -66,7 +69,9 @@ module.exports = function(RED) {
                 maxSize: maxSizeDefault,
                 paused: false,
                 keepNewest: keepNewestDefault,
-                protect: true   // cannot change
+                emptyTtl: Number.MAX_SAFE_INTEGER, // cannot change
+                emptyQueueSince: 0,
+                bypass: false    // cannot change
             }]
         function showStatus(qArray) {
             let n = 0
@@ -84,9 +89,24 @@ module.exports = function(RED) {
             }
             return -1
         }
+        function createQueue(qSelect,qArray,msgQ){
+            qArray.push({
+                qName: qSelect,
+                msgQ: msgQ,
+                maxSize: maxSizeDefault,
+                paused: false,
+                keepNewest: keepNewestDefault,
+                emptyTtl: emptyTtlDefault,
+                emptyQueueSince: 0,
+                bypass: bypassDefault
+            })
+            return qArray.length - 1
+        }
         function enqueue(msg,Q) {
             if (!Q.paused) {    // queue not paused
-                if (Q.msgQ.length < Q.maxSize) {    // queue not full
+                if (Q.bypass) {    // not queuing, we bypass enqueue and send message
+                    node.send(msg)
+                } else if (Q.msgQ.length < Q.maxSize) {    // queue not full
                     Q.msgQ.push(msg)    // queue message
                 } else if (Q.keepNewest) {  // keep newest, otherwise drop
                     Q.msgQ.push(msg)
@@ -105,21 +125,23 @@ module.exports = function(RED) {
             let qSelect = msg[queueSelect]
             let Q = {}
             let qIndex = 0
+            let first, last = 0
             if (typeof qSelect === 'undefined' || qSelect === '') { // qSelect undefined?
                 qSelect =  defaultQueue
-            }            
+            }
             if (msg[controlFlag]) {  // execute command
                 if (qSelect === allQueues){
                     first = 0
                     last = qArray.length
                 } else {
                     first = findQueue(qSelect,qArray)
+                    if (first < 0) {
+                        first = createQueue(qSelect,qArray, [])
+                        node.debug('Queue did not exist. Created an empty one.')
+                    }
                     last = first + 1
                 }
-                if (first < 0) {   // debug: consider createCmd
-                    node.warn('Invalid command ignored: queue does not exist.')
-                    return
-                }
+                let now = Date.now()
                 for (let i = first; i < last; i++) {
                     Q = qArray[i]
                     switch (msg.payload.toString().toLowerCase()) {
@@ -148,13 +170,14 @@ module.exports = function(RED) {
                             break
                         case node.pauseCmd:
                             Q.paused = true
+                            Q.bypass = false
                             break
                         case node.maximumCmd:
                             let newMax = msg[newValue]
                             if (typeof newMax === 'undefined') {
                                 Q.maxSize = maxSizeDefault
-                            } else if (newMax <= 0) {
-                                Q.maxSize = Infinity
+                            } else if (newMax < 0) {
+                                Q.maxSize = Number.MAX_SAFE_INTEGER
                             } else {
                                 Q.maxSize = newMax
                             }
@@ -166,18 +189,33 @@ module.exports = function(RED) {
                             }
                             Q.keepNewest = newKeep
                             break
-                        case node.protectCmd:
+                        case node.bypassCmd:
                             if (Q.qName === defaultQueue) {break}
-                            let newProtect = msg[newValue]
-                            if (typeof newProtect === 'undefined') {
-                                newProtect = protectDefault
+                            let newBypass = msg[newValue]
+                            if (typeof newBypass === 'undefined') {
+                                newBypass = bypassDefault
                             }
-                            Q.protect = newProtect
+                            Q.bypass = newBypass
+                            if (Q.bypass){
+                                node.send([Q.msgQ])
+                                Q.msgQ = []
+                            }
+                            break
+                        case node.emptyTtlCmd:
+                            if (Q.qName === defaultQueue) {break}
+                            let newTtl = msg[newValue]
+                            if (typeof newTtl === 'undefined') {
+                                Q.emptyTtl = maxSizeDefault
+                            } else if (newTtl < 0) {
+                                Q.emptyTtl = Number.MAX_SAFE_INTEGER
+                            } else {
+                                Q.emptyTtl = newTtl
+                            }
                             break
                         case node.deleteCmd:
                             if (Q.paused) {break}
                             if (Q.qName != defaultQueue)
-                                Q.protect = false
+                                Q.emptyTtl = 0
                                 Q.msgQ = []
                             break
                         case node.statusCmd:
@@ -189,7 +227,10 @@ module.exports = function(RED) {
                 }
                 let qArrayTemp = []    // delete empty queues
                 for (let i = 0; i < qArray.length; i++){
-                    if (qArray[i].protect || qArray[i].msgQ.length > 0) {
+                    if (qArray[i].emptyQueueSince === 0 && qArray[i].msgQ.length === 0) {
+                        qArray[i].emptyQueueSince = now
+                    }
+                    if (qArray[i].msgQ.length > 0 || (now - qArray[i].emptyQueueSince) < qArray[i].emptyTtl) {
                         qArrayTemp.push(qArray[i])
                     }
                 }
@@ -201,16 +242,10 @@ module.exports = function(RED) {
                     }
                 } else {
                     qIndex = findQueue(qSelect,qArray)
-                    }        
                     if (qIndex < 0) {   // create new queue
-                        qArray.push({
-                            qName: qSelect,
-                            msgQ: [msg],
-                            maxSize: maxSizeDefault,
-                            paused: false,
-                            keepNewest: keepNewestDefault,
-                            protect: protectDefault
-                        })
+                        if(maxSizeDefault > 0){
+                            createQueue(qSelect,qArray,[msg])
+                        }
                     } else {    // use existing queue
                         enqueue(msg,qArray[qIndex])
                     }
